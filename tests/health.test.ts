@@ -63,5 +63,5 @@ test("marks a stale panel offline", () => {
 });
 
 test("masks the last five characters of a supervisor serial", () => {
-  assert.equal(maskSerial("ZT202885000549A0690"), "ZT202885000549•••••");
+  assert.equal(maskSerial("ZT000000000000A0001"), "ZT000000000000•••••");
 });

@@ -1,4 +1,27 @@
-import type { SolarSnapshot } from "@/lib/types";
+import { gridFlowDetail, homeLoadKw } from "@/lib/format";
+import type { HomeLoad, SolarSnapshot } from "@/lib/types";
+
+const sampleGridKw = -2.88;
+
+function sampleLoad(): HomeLoad {
+  return {
+    powerKw: homeLoadKw(4.28, sampleGridKw),
+    gridKw: sampleGridKw,
+    detail: gridFlowDetail(sampleGridKw),
+    importedKwh: 1200,
+    exportedKwh: 3400,
+  };
+}
+
+function emptyLoad(): HomeLoad {
+  return {
+    powerKw: null,
+    gridKw: null,
+    detail: gridFlowDetail(null),
+    importedKwh: null,
+    exportedKwh: null,
+  };
+}
 
 export const INTERVAL_NOTE =
   "The gateway reports live power and lifetime energy only. Today and this month are the change in the production meter’s lifetime kWh since a local sample. Until that sample is from local midnight or the start of the month, the number is only the energy since recording started.";
@@ -40,6 +63,7 @@ export function sampleSnapshot(
       lifetimeKwh: 12000,
       intervalNote: "Sample figures, not read from a gateway.",
     },
+    load: sampleLoad(),
     panels: [
       {
         id: "sample-1",
@@ -126,6 +150,7 @@ export function emptySnapshot(ip: string): SolarSnapshot {
       lifetimeKwh: null,
       intervalNote: INTERVAL_NOTE,
     },
+    load: emptyLoad(),
     panels: [],
     summary: { total: 0, healthy: 0, warning: 0, offline: 0 },
     meter: null,

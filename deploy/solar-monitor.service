@@ -1,0 +1,15 @@
+[Unit]
+Description=Solar Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/solar-monitor
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port 4317
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

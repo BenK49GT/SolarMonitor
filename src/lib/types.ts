@@ -32,6 +32,14 @@ export type Production = {
   intervalNote: string;
 };
 
+export type HomeLoad = {
+  powerKw: number | null;
+  gridKw: number | null;
+  detail: string;
+  importedKwh: number | null;
+  exportedKwh: number | null;
+};
+
 export type GatewayIdentity = {
   ip: string;
   model: string;
@@ -48,6 +56,7 @@ export type SolarSnapshot = {
   fetchedAt: string;
   gateway: GatewayIdentity | null;
   production: Production;
+  load: HomeLoad;
   panels: Panel[];
   summary: {
     total: number;

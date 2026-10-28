@@ -1,9 +1,10 @@
 import { discoverGateway, readConfig, saveConfig, type GatewayConfig } from "@/lib/discover";
 import { recordLifetime } from "@/lib/energy-log";
+import { gridFlowDetail, homeLoadKw } from "@/lib/format";
 import { classifyPanel, median, parsePvsTime } from "@/lib/health";
 import { readDeviceList, readSupervisor } from "@/lib/pvs";
 import { INTERVAL_NOTE, sampleSnapshot } from "@/lib/sample";
-import type { EnergyFigure, GatewayIdentity, Panel, SolarSnapshot } from "@/lib/types";
+import type { EnergyFigure, GatewayIdentity, HomeLoad, Panel, SolarSnapshot } from "@/lib/types";
 
 type RawDevice = {
   DEVICE_TYPE?: string;
@@ -16,6 +17,8 @@ type RawDevice = {
   subtype?: string;
   p_3phsum_kw?: string;
   net_ltea_3phsum_kwh?: string;
+  neg_ltea_3phsum_kwh?: string;
+  pos_ltea_3phsum_kwh?: string;
   ltea_3phsum_kwh?: string;
   stat_ind?: string;
   t_htsnk_degc?: string;
@@ -66,6 +69,24 @@ function isProductionMeter(device: RawDevice): boolean {
   return type.includes("METER-P") || serial.endsWith("p") || subtype.includes("PRODUCTION");
 }
 
+function isConsumptionMeter(device: RawDevice): boolean {
+  if (device.DEVICE_TYPE !== "Power Meter") return false;
+  const type = device.TYPE ?? "";
+  const subtype = device.subtype ?? "";
+  return type.includes("METER-C") || subtype.includes("CONSUMPTION") || subtype.includes("LOADSIDE");
+}
+
+function readLoad(productionKw: number | null, meter: RawDevice | null): HomeLoad {
+  const gridKw = meter ? numberOrNull(meter.p_3phsum_kw) : null;
+  return {
+    powerKw: homeLoadKw(productionKw, gridKw),
+    gridKw,
+    detail: gridFlowDetail(gridKw),
+    importedKwh: meter ? numberOrNull(meter.pos_ltea_3phsum_kwh) : null,
+    exportedKwh: meter ? numberOrNull(meter.neg_ltea_3phsum_kwh) : null,
+  };
+}
+
 function missingEnergy(detail: string): EnergyFigure {
   return { kwh: null, partial: true, label: "Not reported", detail };
 }
@@ -81,7 +102,7 @@ function summarize(panels: Panel[]): SolarSnapshot["summary"] {
 
 function parseDevices(
   body: unknown,
-): Pick<SolarSnapshot, "production" | "panels" | "summary" | "meter"> {
+): Pick<SolarSnapshot, "production" | "load" | "panels" | "summary" | "meter"> {
   const devices = (body as { devices?: RawDevice[]; result?: string }).devices;
   if (!Array.isArray(devices)) {
     throw new Error("Device list did not include any devices");
@@ -92,6 +113,7 @@ function parseDevices(
   }
 
   const meter = devices.find(isProductionMeter) ?? null;
+  const consumption = devices.find(isConsumptionMeter) ?? null;
   const gatewayNow =
     parsePvsTime(devices.find((device) => device.CURTIME)?.CURTIME) ?? new Date();
   const sitePowerKw = meter ? numberOrNull(meter.p_3phsum_kw) : null;
@@ -150,6 +172,7 @@ function parseDevices(
       lifetimeKwh: meter ? numberOrNull(meter.net_ltea_3phsum_kwh) : null,
       intervalNote: INTERVAL_NOTE,
     },
+    load: readLoad(sitePowerKw, consumption),
     panels,
     summary: summarize(panels),
     meter: meter

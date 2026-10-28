@@ -8,6 +8,20 @@ export function formatPower(kw: number | null): { primary: string; unit: string 
   return { primary: kw.toFixed(2), unit: "kW" };
 }
 
+export function homeLoadKw(productionKw: number | null, gridKw: number | null): number | null {
+  if (productionKw == null || gridKw == null) return null;
+  return Math.round((productionKw + gridKw) * 1000) / 1000;
+}
+
+export function gridFlowDetail(gridKw: number | null): string {
+  if (gridKw == null || Number.isNaN(gridKw)) return "No load meter reading.";
+  const magnitude = formatPower(Math.abs(gridKw));
+  const amount = `${magnitude.primary} ${magnitude.unit}`.trim();
+  if (gridKw <= -0.05) return `Exporting ${amount}`;
+  if (gridKw >= 0.05) return `Importing ${amount}`;
+  return "Grid is about even";
+}
+
 export function formatKwDetail(kw: number | null): string | null {
   if (kw == null || Number.isNaN(kw) || Math.abs(kw) >= 1) return null;
   return `${kw.toFixed(3)} kW`;

@@ -4,7 +4,6 @@ import path from "node:path";
 
 import { getSolar } from "../src/lib/solar";
 
-const GATEWAY_IP = "192.168.1.15";
 const PAGE = `<!doctype html>
 <html lang="en">
 <head>
@@ -19,7 +18,8 @@ const PAGE = `<!doctype html>
     .eyebrow { letter-spacing: 0.18em; text-transform: uppercase; color: #d7b15e; font-size: 0.75rem; }
     .muted { color: #b7b2a4; }
     .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
-    @media (min-width: 800px) { .grid { grid-template-columns: 1.2fr 1fr 1fr; } }
+    @media (min-width: 800px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1100px) { .grid { grid-template-columns: 1fr 1fr 1fr 1fr; } }
     .card { background: #1c1f18; border: 1px solid #34382d; border-radius: 16px; padding: 16px; }
     .value { font-size: 3rem; margin: 8px 0; }
     .value span { font-size: 1.3rem; margin-left: 0.35rem; color: #ddd6c4; }
@@ -80,10 +80,16 @@ const PAGE = `<!doctype html>
       document.getElementById("alert").innerHTML = snap.source !== "live" && snap.error
         ? '<p class="alert">' + snap.error + '</p>' : "";
       const now = power(snap.production.powerKw);
+      const home = power(snap.load && snap.load.powerKw);
       const today = snap.production.today;
       const month = snap.production.month;
+      const load = snap.load || { detail: "No load meter reading.", importedKwh: null, exportedKwh: null };
+      const gridLifetime = load.importedKwh != null && load.exportedKwh != null
+        ? "<br>From grid " + kwh(load.importedKwh) + "<br>To grid " + kwh(load.exportedKwh)
+        : "";
       document.getElementById("figures").innerHTML = [
         figure("Current production", now.n + ' <span>' + now.u + '</span>', snap.production.lifetimeKwh != null ? "Lifetime " + kwh(snap.production.lifetimeKwh) : "Production meter"),
+        figure("Home", home.n + ' <span>' + home.u + '</span>', (load.detail || "No load meter reading.") + gridLifetime),
         figure("Today", today.kwh == null ? today.label : kwh(today.kwh).replace(" kWh", "") + ' <span>kWh</span>', today.kwh == null ? today.detail : today.label + ". " + today.detail),
         figure("This month", month.kwh == null ? month.label : kwh(month.kwh).replace(" kWh", "") + ' <span>kWh</span>', month.kwh == null ? month.detail : month.label + ". " + month.detail),
       ].join("");
@@ -106,7 +112,7 @@ function ensureGatewayConfig(): void {
   fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(
     configPath,
-    JSON.stringify({ ip: GATEWAY_IP, mode: "manual" }, null, 2),
+    JSON.stringify({ ip: null, mode: "auto" }, null, 2),
     "utf8",
   );
 }

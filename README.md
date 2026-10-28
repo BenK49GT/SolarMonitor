@@ -1,48 +1,77 @@
 # Solar Monitor
 
-A local dashboard for a SunPower PVS supervisor on the home network. It reads the gateway directly. It does not use a SunPower cloud account, a database, or a login of its own.
+Solar Monitor provides solar production logging like the original SunPower or SunStrong app. It runs on your own network and reads the PVS gateway directly. It does not use a SunPower or SunStrong cloud account.
 
-Open [http://127.0.0.1:4317](http://127.0.0.1:4317).
+It is an independent project. It is not affiliated with, endorsed by, or sold by SunPower or SunStrong.
 
-## Run
+A local logger takes the place of the paid monitoring service, which is about $100 a year. If this saves you that fee, tips are welcome:
 
-From this folder:
+**BTC** `bc1qsmm6sn98wchnj89w6ttnjs7gfmxz2xg04t9lsz`
+
+## What it shows
+
+- Live production from the production meter
+- Live home use, and whether the house is importing or exporting
+- Today’s energy and this month’s energy, derived on this computer from the meter’s lifetime reading
+- Each inverter the gateway reports, marked healthy, warning, or offline
+
+The page refreshes about every 20 seconds. Readings are stored in `data/energy-log.json` on the machine running the app. That file stays on your computer. It is not part of this repository.
+
+On startup the app tries the address saved in `data/gateway.json`. If that host does not answer as a PVS, it searches this computer’s local IPv4 subnet. Use **Use this IP** on the page to pin an address. **Discover** clears the pin and searches again.
+
+The PVS and this app need to be on a network that can see each other. A guest Wi-Fi network that isolates clients will not work.
+
+## Run on a computer
+
+Install [Node.js 20](https://nodejs.org/) or newer, then:
 
 ```bash
+git clone https://github.com/BenK49GT/SolarMonitor.git
+cd SolarMonitor
 npm install
 npm run dev
 ```
 
-The dev server listens on all interfaces, port **4317**. Leave that command running, then open the URL above. On a phone on the same Wi-Fi, use this computer’s LAN address with the same port.
+Open [http://127.0.0.1:4317](http://127.0.0.1:4317). Leave that command running.
 
-To run a production build later:
+For a production build on the same computer:
 
 ```bash
 npm run build
 npm start
 ```
 
-## What it shows
+`npm start` listens on all interfaces, port **4317**. On a phone on the same Wi-Fi, use this computer’s LAN address with that port.
 
-- Current production, from the production meter’s live power
-- Today’s energy and this month’s energy, from the local lifetime log
-- Each inverter the gateway reports, marked healthy, warning, or offline
-- A place to type the gateway IP if automatic discovery misses it
+## Run as a Raspberry Pi service
 
-The page refreshes about every 20 seconds. Each live reading appends the production meter’s lifetime kWh to `data/energy-log.json`. Today is the change since local midnight, and this month is the change since the first of the month. Until those baselines exist, the cards show only the energy since recording started, labeled with that time.
+Use a Pi on the same LAN as the PVS, with Node.js 20 or newer. Raspberry Pi OS and a Pi 4 or newer are the comfortable fit. A Pi 2 can run out of memory during `npm install` and `npm run build`.
 
-If the gateway cannot be reached, the page says so and shows **sample data**, labeled as sample. Those numbers are not from the house.
+```bash
+sudo mkdir -p /opt/solar-monitor
+sudo chown "$USER" /opt/solar-monitor
+git clone https://github.com/BenK49GT/SolarMonitor.git /opt/solar-monitor
+cd /opt/solar-monitor
+npm install
+npm run build
+```
 
-## How the gateway is found
+Install the service. If `node` is not at `/usr/bin/node`, change `ExecStart` in the unit file.
 
-On startup the app tries the address saved in `data/gateway.json`. If that host does not answer, it looks through this computer’s local IPv4 subnet for `https://<ip>/cgi-bin/dl_cgi/supervisor/info`. It does not scan beyond that subnet.
+```bash
+sudo cp deploy/solar-monitor.service /etc/systemd/system/solar-monitor.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now solar-monitor
+```
 
-Use **Use this IP** on the page to pin an address. **Discover** clears the pin and searches again.
+The page is `http://<pi-lan-address>:4317`. Check status with `systemctl status solar-monitor`. Logs are `journalctl -u solar-monitor -f`.
 
-Newer PVS firmware (this house is a PVS6, build 61846) requires the local owner session described by SunStrong. The app takes the serial number from the open supervisor endpoint and does not store the password.
+To keep that address from changing, reserve the Pi’s MAC in the router’s DHCP settings. Do the same for the PVS if its address moves and the page loses the gateway. **Discover** on the page searches again.
 
-## Energy the gateway does not report
+## License
 
-This PVS6 reports instantaneous power and lifetime energy. Daily and monthly totals are derived on this computer from `data/energy-log.json`. Lifetime energy stays on the current-power card.
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE.md).
 
-Live power is `p_3phsum_kw` on the production meter (`TYPE` `PVS5-METER-P`), which matches `/sys/livedata/pv_p`. Lifetime energy is `net_ltea_3phsum_kwh`, which matches `/sys/livedata/pv_en`.
+You may use, modify, and share it for noncommercial purposes, including running it at home and giving copies to other owners. You may not sell it or use it in a commercial product. Anyone who receives a copy should also receive these terms.
+
+Required Notice: Copyright BenK49GT (https://github.com/BenK49GT/SolarMonitor)

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatAgo, formatClock, formatKwDetail, formatKwh, formatPower } from "@/lib/format";
 import { emptySnapshot, sampleSnapshot } from "@/lib/sample";
-import type { EnergyFigure, Health, Panel, SolarSnapshot } from "@/lib/types";
+import type { EnergyFigure, Health, HomeLoad, Panel, SolarSnapshot } from "@/lib/types";
 
 const REFRESH_MS = 20_000;
 
@@ -237,10 +237,11 @@ function LoadingState() {
   return (
     <div className="space-y-4" aria-busy="true" aria-live="polite">
       <p className="text-sm text-muted-foreground">Loading production and panel health…</p>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Skeleton className="h-44" />
         <Skeleton className="h-44" />
-        <Skeleton className="h-44 sm:col-span-2 lg:col-span-1" />
+        <Skeleton className="h-44" />
+        <Skeleton className="h-44" />
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }, (_, index) => (
@@ -291,8 +292,8 @@ function LiveState({
         </p>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="sm:col-span-2 lg:col-span-1">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card>
           <CardHeader>
             <CardDescription>Current production</CardDescription>
             <CardTitle className="sr-only">Current production</CardTitle>
@@ -324,6 +325,7 @@ function LiveState({
           </CardContent>
         </Card>
 
+        <HomeCard load={snapshot.load} />
         <EnergyCard label="Today" figure={snapshot.production.today} />
         <EnergyCard label="This month" figure={snapshot.production.month} />
       </section>
@@ -410,6 +412,42 @@ function LiveState({
         )}
       </section>
     </div>
+  );
+}
+
+function HomeCard({ load }: { load: HomeLoad }) {
+  const power = formatPower(load.powerKw);
+  const totals =
+    load.importedKwh != null && load.exportedKwh != null
+      ? { imported: formatKwh(load.importedKwh), exported: formatKwh(load.exportedKwh) }
+      : null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription>Home</CardDescription>
+        <CardTitle className="sr-only">Home load</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {load.powerKw == null ? (
+          <EmptyFigure title="No load data" body={load.detail} />
+        ) : (
+          <>
+            <p className="font-display text-6xl tracking-tight text-primary sm:text-7xl">
+              {power.primary}
+              <span className="ml-2 text-2xl text-primary/80">{power.unit}</span>
+            </p>
+            <p className="text-sm text-muted-foreground">{load.detail}</p>
+            {totals ? (
+              <p className="pt-4 text-sm text-muted-foreground">
+                From grid {totals.imported}
+                <br />
+                To grid {totals.exported}
+              </p>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
