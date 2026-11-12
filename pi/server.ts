@@ -70,6 +70,12 @@ const PAGE = `<!doctype html>
       return "Gateway: " + (panel.stateDescr || panel.state || "unknown") + " · " + when;
     };
     const figure = (label, body, note) => '<article class="card"><p class="muted">' + label + '</p><p class="value">' + body + '</p><p class="muted">' + note + '</p></article>';
+    const usedNote = (figure, marker) => {
+      const detail = figure.detail || "";
+      const at = detail.indexOf(marker);
+      if (at >= 0) return detail.slice(at);
+      return figure.kwh == null ? detail : "";
+    };
     async function tick() {
       const response = await fetch("/api/solar", { cache: "no-store" });
       const snap = await response.json();
@@ -90,8 +96,8 @@ const PAGE = `<!doctype html>
       document.getElementById("figures").innerHTML = [
         figure("Current production", now.n + ' <span>' + now.u + '</span>', snap.production.lifetimeKwh != null ? "Lifetime " + kwh(snap.production.lifetimeKwh) : "Production meter"),
         figure("Home", home.n + ' <span>' + home.u + '</span>', (load.detail || "No load meter reading.") + gridLifetime),
-        figure("Today", today.kwh == null ? today.label : kwh(today.kwh).replace(" kWh", "") + ' <span>kWh</span>', today.kwh == null ? today.detail : today.label + ". " + today.detail),
-        figure("This month", month.kwh == null ? month.label : kwh(month.kwh).replace(" kWh", "") + ' <span>kWh</span>', month.kwh == null ? month.detail : month.label + ". " + month.detail),
+        figure("Today", today.kwh == null ? today.label : kwh(today.kwh).replace(" kWh", "") + ' <span>kWh</span>', usedNote(today, "Used today")),
+        figure("This month", month.kwh == null ? month.label : kwh(month.kwh).replace(" kWh", "") + ' <span>kWh</span>', usedNote(month, "Used this month")),
       ].join("");
       document.getElementById("summary").textContent = snap.summary.total + " panels · " + snap.summary.healthy + " healthy · " + snap.summary.warning + " warning · " + snap.summary.offline + " offline";
       document.getElementById("panels").innerHTML = snap.panels.map((panel) => {

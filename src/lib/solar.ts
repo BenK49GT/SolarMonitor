@@ -219,7 +219,11 @@ async function loadSolar(): Promise<SolarSnapshot> {
     };
     const parsed = parseDevices(devices);
     if (parsed.production.lifetimeKwh != null) {
-      const periods = await recordLifetime(parsed.production.lifetimeKwh);
+      const imported = parsed.load.importedKwh;
+      const exported = parsed.load.exportedKwh;
+      const grid =
+        imported != null && exported != null ? { importedKwh: imported, exportedKwh: exported } : undefined;
+      const periods = await recordLifetime(parsed.production.lifetimeKwh, new Date(), grid);
       parsed.production.today = periods.today;
       parsed.production.month = periods.month;
     }

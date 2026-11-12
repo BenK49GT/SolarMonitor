@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { deriveEnergy, shouldKeepSample, type EnergySample } from "@/lib/energy";
+import { deriveEnergy, shouldKeepSample, type EnergySample, type GridMeters } from "@/lib/energy";
 import type { EnergyFigure } from "@/lib/types";
 
 const LOG_PATH = path.join(process.cwd(), "data", "energy-log.json");
@@ -28,28 +28,6 @@ async function readLog(): Promise<EnergyLog> {
   }
 }
 
-function prune(samples: EnergySample[], now: Date): EnergySample[] {
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() - 45);
-  const cutoffMs = cutoff.getTime();
-  const kept: EnergySample[] = [];
-  let lastDay = "";
-  for (const sample of samples) {
-    const time = new Date(sample.at).getTime();
-    if (!Number.isFinite(time)) continue;
-    if (time >= cutoffMs || kept.length === 0) {
-      kept.push(sample);
-      continue;
-    }
-    const day = new Date(sample.at).toDateString();
-    if (day !== lastDay) {
-      kept.push(sample);
-      lastDay = day;
-    }
-  }
-  return kept.slice(-8000);
-}
-
 async function writeLog(log: EnergyLog): Promise<void> {
   await fs.mkdir(path.dirname(LOG_PATH), { recursive: true });
   const temp = `${LOG_PATH}.tmp`;
@@ -58,23 +36,31 @@ async function writeLog(log: EnergyLog): Promise<void> {
   await fs.rename(temp, LOG_PATH);
 }
 
-async function recordUnlocked(lifetimeKwh: number, now: Date): Promise<{ today: EnergyFigure; month: EnergyFigure }> {
+async function recordUnlocked(
+  lifetimeKwh: number,
+  now: Date,
+  grid?: GridMeters,
+): Promise<{ today: EnergyFigure; month: EnergyFigure }> {
   const log = await readLog();
-  const next: EnergySample = { at: now.toISOString(), lifetimeKwh };
+  const next: EnergySample = {
+    at: now.toISOString(),
+    lifetimeKwh,
+    ...(grid ? { importedKwh: grid.importedKwh, exportedKwh: grid.exportedKwh } : {}),
+  };
   const previous = log.samples[log.samples.length - 1];
   if (shouldKeepSample(previous, next)) {
     log.samples.push(next);
-    log.samples = prune(log.samples, now);
     await writeLog(log);
   }
-  return deriveEnergy(log.samples, lifetimeKwh, now);
+  return deriveEnergy(log.samples, lifetimeKwh, now, grid);
 }
 
 export function recordLifetime(
   lifetimeKwh: number,
   now = new Date(),
+  grid?: GridMeters,
 ): Promise<{ today: EnergyFigure; month: EnergyFigure }> {
-  const run = writeChain.then(() => recordUnlocked(lifetimeKwh, now));
+  const run = writeChain.then(() => recordUnlocked(lifetimeKwh, now, grid));
   writeChain = run.then(
     () => undefined,
     () => undefined,
